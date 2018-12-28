@@ -1,10 +1,22 @@
-# <%= @service.docs.leading_comments -%>
-class <%= @service.name %>Client
+<% @requires = capture do %>
+require "json"
+require "pathname"
+
+require "google/gax"
+require "google/gax/operation"
+require "google/longrunning/operations_client"
+
+require "google/cloud/<%= service.name.underscore %>/v1/cloud_<%= service.name.underscore %>_pb"
+require "google/cloud/<%= service.name.underscore %>/v1/credentials"
+<% end %>
+##
+#<%= service.docs.leading_comments.split("\n").join("\n#") %>
+class <%= service.name %>Client
   # @private
-  attr_reader :<%= @util.snake_case @service.name %>_stub
+  attr_reader :<%= service.name.underscore %>_stub
 
   # The default address of the service.
-  SERVICE_ADDRESS = "<%= @util.snake_case @service.name %>.googleapis.com"
+  SERVICE_ADDRESS = "<%= service.name.underscore %>.googleapis.com"
 
   # The default port of the service.
   DEFAULT_SERVICE_PORT = 443
@@ -22,8 +34,8 @@ class <%= @service.name %>Client
 
   # @private
   class OperationsClient < Google::Longrunning::OperationsClient
-    SERVICE_ADDRESS = SpeechClient::SERVICE_ADDRESS
-    GRPC_INTERCEPTORS = SpeechClient::GRPC_INTERCEPTORS.dup
+    SERVICE_ADDRESS = <%= service.name %>Client::SERVICE_ADDRESS
+    GRPC_INTERCEPTORS = <%= service.name %>Client::GRPC_INTERCEPTORS.dup
   end
 
   ##
@@ -71,9 +83,9 @@ class <%= @service.name %>Client
     # the gRPC module only when it's required.
     # See https://github.com/googleapis/toolkit/issues/446
     require "google/gax/grpc"
-    require "google/cloud/<%= @util.snake_case @service.name %>/v1/cloud_<%= @util.snake_case @service.name %>_services_pb"
+    require "google/cloud/<%= service.name.underscore %>/v1/cloud_<%= service.name.underscore %>_services_pb"
 
-    credentials ||= Google::Cloud::<%= @service.name %>::V1::Credentials.default
+    credentials ||= Google::Cloud::<%= service.name %>::V1::Credentials.default
 
     @operations_client = OperationsClient.new(
       credentials: credentials,
@@ -83,14 +95,14 @@ class <%= @service.name %>Client
       lib_name: lib_name,
       lib_version: lib_version
     )
-    @<%= @util.snake_case @service.name %>_stub = create_stub credentials, scopes
+    @<%= service.name.underscore %>_stub = create_stub credentials, scopes
 
     defaults = default_settings client_config, timeout, metadata, lib_name, lib_version
 
-<% @service.methods.each do |method| %>
-<% method_name = @util.underscore method.descriptor.name %>
+<% service.methods.each do |method| %>
+<% method_name = method.descriptor.name.underscore %>
 @<%= method_name %> = Google::Gax.create_api_call(
-@<%= @util.snake_case @service.name %>_stub.method(:<%= method_name %>),
+@<%= service.name.underscore %>_stub.method(:<%= method_name %>),
 defaults["<%= method_name %>"],
 exception_transformer: exception_transformer
 )
@@ -99,8 +111,8 @@ exception_transformer: exception_transformer
 
   # Service calls
 
-<% @service.methods.each do |method| %>
-<% method_name = @util.underscore method.descriptor.name %>
+<% service.methods.each do |method| %>
+<% method_name = method.descriptor.name.underscore %>
   ##
 <%- method.docs.leading_comments.split("\n").each do |s| %>
   # <%= s %>
@@ -116,7 +128,7 @@ exception_transformer: exception_transformer
       <%= f.name %>: <%= f.name %>,
 <%- end %>
     }.delete_if { |_, v| v.nil? }
-    request = Google::Gax.to_proto request, <%= @util.rubyize_constant method.descriptor.input_type %>
+    request = Google::Gax.to_proto request, <%= ruby_namespace method.descriptor.input_type %>
     @<%= method_name %>.call(request, options, &block)
   end
 <% end %>
@@ -125,7 +137,7 @@ exception_transformer: exception_transformer
 
   def create_stub credentials, scopes
     if credentials.is_a?(String) || credentials.is_a?(Hash)
-      updater_proc = Google::Cloud::Speech::V1::Credentials.new(credentials).updater_proc
+      updater_proc = Google::Cloud::<%= service.name %>::V1::Credentials.new(credentials).updater_proc
     elsif credentials.is_a? GRPC::Core::Channel
       channel = credentials
     elsif credentials.is_a? GRPC::Core::ChannelCredentials
@@ -140,7 +152,7 @@ exception_transformer: exception_transformer
     service_path = self.class::SERVICE_ADDRESS
     port = self.class::DEFAULT_SERVICE_PORT
     interceptors = self.class::GRPC_INTERCEPTORS
-    stub_new = Google::Cloud::Speech::V1::Speech::Stub.method :new
+    stub_new = Google::Cloud::<%= service.name %>::V1::<%= service.name %>::Stub.method :new
     Google::Gax::Grpc.create_stub(
       service_path,
       port,
@@ -154,7 +166,7 @@ exception_transformer: exception_transformer
   end
 
   def default_settings client_config, timeout, metadata, lib_name, lib_version
-    package_version = Gem.loaded_specs["google-cloud-speech"].version.version
+    package_version = Gem.loaded_specs["google-cloud-<%= service.name.underscore %>"].version.version
 
     google_api_client = ["gl-ruby/#{RUBY_VERSION}"]
     google_api_client << " #{lib_name}/#{lib_version}" if lib_name
@@ -165,11 +177,11 @@ exception_transformer: exception_transformer
     headers = { "x-goog-api-client": google_api_client }
     headers.merge! metadata unless metadata.nil?
     client_config_file = Pathname.new(__dir__).join(
-      "<%= @util.snake_case @service.name %>_client_config.json"
+      "<%= service.name.underscore %>_client_config.json"
     )
     client_config_file.open do |f|
       Google::Gax.construct_settings(
-        "google.cloud.<%= @util.snake_case @service.name %>.v1.<%= @service.name %>",
+        "google.cloud.<%= service.name.underscore %>.v1.<%= service.name %>",
         JSON.parse(f.read),
         client_config,
         Google::Gax::Grpc::STATUS_CODE_NAMES,

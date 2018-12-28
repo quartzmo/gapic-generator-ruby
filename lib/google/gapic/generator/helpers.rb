@@ -27,6 +27,13 @@ module Google
           end
           @output_files[file_name] = capture &block
         end
+
+        ##
+        # Converts a dot-separated namespace string to a new string with
+        # Ruby double-semicolon separators.
+        def ruby_namespace s
+          s.split(".").reject(&:empty?).map(&:upcase_first).join "::"
+        end
       end
     end
   end
